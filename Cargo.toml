@@ -1,11 +1,17 @@
 [package]
-name = "axum-example1"
+name = "server"
 version = "0.1.0"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-axum = "0.6.20"
+axum = { version = "0.6.4", features = ["macros"] }
+dotenvy = "0.15.7"
 serde = { version = "1.0.189", features = ["derive"] }
+sqlx = { version = "0.6.3", features = ["postgres", "runtime-tokio-native-tls"] }
 tokio = { version = "1.33.0", features = ["full"] }
+tower-http = { version = "0.4.4", features = ["cors"] }
+
+[profile.dev.package.sqlx-macros]
+opt-level = 3

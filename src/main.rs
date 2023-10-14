@@ -1,26 +1,49 @@
+mod postgres;
+use crate::postgres::{rest_router, AppState};
+use axum::{
+    http::{header::CONTENT_TYPE, HeaderValue, Method},
+    routing, Json, Router,
+};
+use sqlx::postgres::PgPoolOptions;
 use std::net::SocketAddr;
 
-use axum::{routing::get, Json, Router};
-use serde::Serialize;
-
 #[tokio::main]
-async fn main() {
-    let app = Router::new().route("/", get(hello_handler));
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    // load environment variables from .env
+    dotenvy::dotenv().ok();
+
+    // create the db pool
+    let db_url = std::env::var("DATABASE_URL").expect("DATABASE_URL must be set");
+    let pool = PgPoolOptions::new().connect(&db_url).await?;
+
+    let app = Router::new()
+        .route("/", routing::get(handler))
+        .merge(rest_router())
+        .layer(
+            tower_http::cors::CorsLayer::new()
+                .allow_origin("http://localhost:5173".parse::<HeaderValue>().unwrap())
+                .allow_headers([CONTENT_TYPE])
+                .allow_methods([Method::GET, Method::POST, Method::PATCH, Method::DELETE]),
+        )
+        .with_state(AppState::new(pool));
+
     let addr = SocketAddr::from(([127, 0, 0, 1], 3030));
-    println!("Server started, listening on {}", addr);
+    println!("Server started, listening on {addr}");
     axum::Server::bind(&addr)
         .serve(app.into_make_service())
         .await
-        .expect("it should not fail here");
+        .unwrap();
+
+    Ok(())
 }
 
-async fn hello_handler() -> Json<Message> {
-    Json(Message {
-        message: "Hello, World!".to_string(),
-    })
-}
-
-#[derive(Serialize)]
+#[derive(serde::Serialize)]
 struct Message {
     message: String,
+}
+
+async fn handler() -> Json<Message> {
+    Json(Message {
+        message: format!("Hello, World!"),
+    })
 }
